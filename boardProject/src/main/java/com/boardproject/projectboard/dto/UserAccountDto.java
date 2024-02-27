@@ -1,12 +1,18 @@
 package com.boardproject.projectboard.dto;
 
 import com.boardproject.projectboard.domain.UserAccount;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
 
 public record UserAccountDto(
+        @NotBlank(message = "Id를 입력하세요")
         String userId,
+        @NotBlank(message = "비밀번호를 입력하세요")
         String userPassword,
+        @NotBlank(message = "이메일을 입력하세요")
+        @Email(message = "이메일 형식으로 입력하세요")
         String email,
         String nickname,
         String memo,

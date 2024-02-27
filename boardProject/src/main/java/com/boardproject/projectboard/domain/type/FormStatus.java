@@ -8,7 +8,9 @@ public enum FormStatus {
 
     @Getter
     private final String description;
-    @Getter private final Boolean update;
+
+    @Getter
+    private final Boolean update;
 
     FormStatus(String description, Boolean update) {
         this.description = description;

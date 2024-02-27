@@ -4,14 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="">
-    <meta name="author" content="jeong ">
+    <meta name="author" content="jeong">
     <title>게시판 페이지</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
     <link href="/css/search-bar.css" rel="stylesheet">
+    <link href="/css/articles/table-header.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 300px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            z-index: 1000;
+        }
+        .chat-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .chat-body {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .chat-input {
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 
 <body>
-
 <header id="header">
     헤더 삽입부
     <hr>
@@ -59,35 +87,36 @@
     <div class="row">
         <table class="table" id="article-table">
             <thead>
-        <tr>
-            <th class="title col-6">제목</th>
-            <th class="hashtag col-2">해시태그</th>
-            <th class="user-id col">작성자</th>
-            <th class="created-at col">작성일</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <td class="title"><a>첫글</a></td>
-            <td class="hashtag">#java</td>
-            <td class="user-id">jeong</td>
-            <td class="created-at"><time>2022-01-01</time></td>
-        </tr>
-        <tr>
-            <td>두번째글</td>
-            <td>#spring</td>
-            <td>jeong</td>
-            <td><time>2022-01-02</time></td>
-        </tr>
-        <tr>
-            <td>세번째글</td>
-            <td>#java</td>
-            <td>jeong</td>
-            <td><time>2022-01-03</time></td>
-        </tr>
-        </tbody>
-    </table>
+            <tr>
+                <th class="title col-6"><a>제목</a></th>
+                <th class="hashtag col-2"><a>해시태그</a></th>
+                <th class="user-id"><a>작성자</a></th>
+                <th class="created-at"><a>작성일</a></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td class="title"><a>첫글</a></td>
+                <td class="hashtag"><span class="badge text-bg-secondary mx-1"><a class="text-reset">#java</a></span></td>
+                <td class="user-id">Uno</td>
+                <td class="created-at"><time>2022-01-01</time></td>
+            </tr>
+            <tr>
+                <td>두번째글</td>
+                <td>#spring</td>
+                <td>Uno</td>
+                <td><time>2022-01-02</time></td>
+            </tr>
+            <tr>
+                <td>세번째글</td>
+                <td>#java</td>
+                <td>Uno</td>
+                <td><time>2022-01-03</time></td>
+            </tr>
+            </tbody>
+        </table>
     </div>
+
     <div class="row">
         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
             <a class="btn btn-primary me-md-2" role="button" id="write-article">글쓰기</a>
@@ -104,6 +133,16 @@
         </nav>
     </div>
 </main>
+<!-- 채팅창 컨테이너 추가 -->
+<div class="chat-container">
+    <div class="chat-header">채팅</div>
+    <div class="chat-body" id="chat-body">
+        <!-- 채팅 메시지가 여기에 표시-->
+    </div>
+    <input type="text" id="chat-message" placeholder="메시지를 입력하세요..." class="chat-input">
+    <button id="send-message" class="btn btn-primary">보내기</button>
+
+</div>
 
 <footer id="footer">
     <hr>
@@ -111,5 +150,75 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+<script>
+    var stompClient = null;
+    var chatBody = document.getElementById('chat-body');
+
+    function connect() {
+        var socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function(frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/public', function(message) {
+                saveAndShowMessage(JSON.parse(message.body).content);
+            });
+        });
+    }
+
+    function sendMessage() {
+        var messageContent = document.getElementById('chat-message').value;
+        if(messageContent && stompClient) {
+            var chatMessage = {
+                content: messageContent,
+                type: 'CHAT'
+            };
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+            document.getElementById('chat-message').value = '';
+        }
+    }
+
+    function saveAndShowMessage(message) {
+        // 메시지를 로컬 스토리지에 저장
+        var existingMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
+        existingMessages.push(message);
+        localStorage.setItem('chatMessages', JSON.stringify(existingMessages));
+        showMessage(message);
+    }
+
+    function showMessage(message) {
+        var messageElement = document.createElement('div');
+        messageElement.innerText = message;
+        chatBody.appendChild(messageElement);
+        chatBody.scrollTop = chatBody.scrollHeight; // 최신 메시지 위치로 스크롤
+    }
+
+    // 페이지 로드 시 로컬 스토리지에서 채팅 내역 불러오기
+    function loadMessages() {
+        var existingMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
+        existingMessages.forEach(function(message) {
+            showMessage(message);
+        });
+    }
+
+    document.getElementById('send-message').addEventListener('click', function(event) {
+        event.preventDefault();
+        sendMessage();
+    });
+
+    document.getElementById('chat-message').addEventListener('keypress', function(event) {
+        if (event.keyCode === 13) { // 엔터 키
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // 페이지 로드 시 채팅 내역 로드 및 웹소켓 연결
+    window.onload = function() {
+        loadMessages();
+        connect();
+    };
+</script>
 </body>
 </html>
